@@ -12,12 +12,19 @@
 .menu_part_left {
   display: flex;
   flex-basis: 35%;
+  gap: 20px;
 }
 
 .link {
   display: flex;
+  align-items: center;
   text-decoration: none;
   color: var(--text-inactive-color);
+  transition: color 0.2s ease-in-out;
+}
+
+.link:hover {
+  color: var(--text-primary-color);
 }
 
 .link_active {
@@ -26,12 +33,7 @@
 
 .link_position_last {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   flex-basis: 35%;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  margin: 0 auto;
 }
