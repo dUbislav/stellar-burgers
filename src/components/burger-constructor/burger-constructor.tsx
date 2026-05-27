@@ -5,11 +5,13 @@ import { useDispatch, useSelector } from '../../services/store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { selectUser } from '../../services/userSlice';
 import {
+  clearOrderModal,
   createOrder,
   selectConstructorItems,
   selectOrderModalData,
   selectOrderRequest
 } from '../../services/constructorSlice';
+import { fetchFeed } from '../../services/feedSlice';
 
 export const BurgerConstructor: FC = () => {
   const constructorItems = useSelector(selectConstructorItems);
@@ -31,10 +33,12 @@ export const BurgerConstructor: FC = () => {
       constructorItems.bun._id
     ];
 
-    dispatch(createOrder(ingredientsIds));
+    dispatch(createOrder(ingredientsIds))
+      .unwrap()
+      .then(() => dispatch(fetchFeed()));
   };
   const closeOrderModal = () => {
-    navigate(-1);
+    dispatch(clearOrderModal());
   };
 
   const price = useMemo(

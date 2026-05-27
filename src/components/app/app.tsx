@@ -27,6 +27,7 @@ import {
 import { useEffect } from 'react';
 import { checkUserAuth } from '../../services/userSlice';
 import { fetchFeed } from '../../services/feedSlice';
+import { clearOrderModal } from 'src/services/constructorSlice';
 
 const App = () => {
   const navigate = useNavigate();

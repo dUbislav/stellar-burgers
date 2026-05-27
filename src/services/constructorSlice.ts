@@ -1,6 +1,7 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from './store';
 import { orderBurgerApi } from '../utils/burger-api';
+import { fetchFeed } from './feedSlice';
 import { TIngredient, TConstructorIngredient, TOrder } from '../utils/types';
 
 export type TConstructorState = {
@@ -43,29 +44,25 @@ const constructorSlice = createSlice({
   name: 'constructor',
   initialState: initialConstructorState,
   reducers: {
-    addIngredient: (state, action) => {
-      const ingredient = action.payload;
-
-      if (ingredient.type === 'bun') {
-        return {
-          ...state,
-          constructorItems: {
-            ...state.constructorItems,
-            bun: ingredient
-          }
-        };
-      } else {
-        const newIngredient: TConstructorIngredient = {
-          ...ingredient,
-          id: `${ingredient._id}-${Date.now()}`
-        };
-        return {
-          ...state,
-          constructorItems: {
-            ...state.constructorItems,
-            ingredients: [...state.constructorItems.ingredients, newIngredient]
-          }
-        };
+    addIngredient: {
+      prepare: (ingredient: TIngredient) => ({
+        payload:
+          ingredient.type === 'bun'
+            ? ingredient
+            : { ...ingredient, id: `${ingredient._id}-${Date.now()}` }
+      }),
+      reducer: (
+        state,
+        action: PayloadAction<TIngredient & { id?: string }>
+      ) => {
+        const ingredient = action.payload;
+        if (ingredient.type === 'bun') {
+          state.constructorItems.bun = ingredient;
+        } else {
+          state.constructorItems.ingredients.push(
+            ingredient as TConstructorIngredient
+          );
+        }
       }
     },
     removeIngredient: (state, action) => {

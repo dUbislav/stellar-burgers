@@ -19,11 +19,7 @@ export const Login: FC = () => {
 
   const handleSubmit = (e: SyntheticEvent) => {
     e.preventDefault();
-    dispatch(loginUser({ email, password })).then((action) => {
-      if (action.meta.requestStatus === 'fulfilled') {
-        navigate('/');
-      }
-    });
+    dispatch(loginUser({ email, password }));
   };
 
   return (
