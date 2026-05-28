@@ -1,23 +1,49 @@
-import { FC, useMemo } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { Preloader } from '../ui/preloader';
 import { OrderInfoUI } from '../ui/order-info';
-import { TIngredient } from '@utils-types';
+import { TIngredient, TOrder } from '@utils-types';
+import {
+  fetchProfileOrders,
+  selectProfileOrders
+} from '../../services/profileOrderSlice';
+import { useDispatch, useSelector } from '../../services/store';
+import { useParams } from 'react-router-dom';
+import { selectIngredients } from '../../services/ingredientsSlice';
+import { selectFeedOrders } from '../../services/feedSlice';
+import { getOrderByNumberApi } from '@api';
 
 export const OrderInfo: FC = () => {
-  /** TODO: взять переменные orderData и ingredients из стора */
-  const orderData = {
-    createdAt: '',
-    ingredients: [],
-    _id: '',
-    status: '',
-    name: '',
-    updatedAt: 'string',
-    number: 0
-  };
+  const { number } = useParams();
 
-  const ingredients: TIngredient[] = [];
+  const ingredients: TIngredient[] = useSelector(selectIngredients);
+  const feedOrders = useSelector(selectFeedOrders);
+  const profileOrders = useSelector(selectProfileOrders);
 
-  /* Готовим данные для отображения */
+  const [loadedOrder, setLoadedOrder] = useState<TOrder | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const orderData =
+    feedOrders.find((order) => order.number === Number(number)) ||
+    profileOrders.find((order) => order.number === Number(number)) ||
+    loadedOrder;
+
+  useEffect(() => {
+    if (orderData || !number) return;
+
+    setIsLoading(true);
+    getOrderByNumberApi(Number(number))
+      .then((data) => {
+        setLoadedOrder(data.orders[0]);
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load order');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [number, orderData]);
+
   const orderInfo = useMemo(() => {
     if (!orderData || !ingredients.length) return null;
 
