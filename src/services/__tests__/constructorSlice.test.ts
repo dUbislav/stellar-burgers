@@ -132,10 +132,10 @@ describe('extra reducers tests', () => {
   test('should be fulfilled during create order', () => {
     const result = constructorReducer(initialConstructorState, {
       type: createOrder.fulfilled.type,
-      payload: { orderNumber: 12345 }
+      payload: { number: 12345 }
     });
     expect(result.orderRequest).toBe(false);
-    expect(result.orderModalData).toEqual({ orderNumber: 12345 });
+    expect(result.orderModalData).toEqual({ number: 12345 });
     expect(result.constructorItems).toEqual({
       bun: null,
       ingredients: []

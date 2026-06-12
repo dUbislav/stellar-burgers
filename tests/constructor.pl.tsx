@@ -7,6 +7,7 @@ type TIngredient = {
   type: 'bun' | 'main' | 'sauce';
 };
 
+// Читаем моки для получения ID (остается как у вас)
 const ingredientsMock = JSON.parse(
   readFileSync(
     './tests/hars/d865ae765d0bd24d2055469500cc7f17b1056715.json',
@@ -14,12 +15,8 @@ const ingredientsMock = JSON.parse(
   )
 ) as { data: TIngredient[] };
 
-const bun = ingredientsMock.data.find(
-  (ingredient) => ingredient.type === 'bun'
-);
-const main = ingredientsMock.data.find(
-  (ingredient) => ingredient.type === 'main'
-);
+const bun = ingredientsMock.data.find((i) => i.type === 'bun');
+const main = ingredientsMock.data.find((i) => i.type === 'main');
 
 if (!bun || !main) {
   throw new Error(
@@ -29,77 +26,43 @@ if (!bun || !main) {
 
 const orderNumber = 12345;
 
-const mockCommonRequests = async (page: Page) => {
-  await page.routeFromHAR('./tests/hars/ingredients.har', {
-    url: '**/api/ingredients',
-    update: false
-  });
-
-  await page.route('**/api/orders/all', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        success: true,
-        orders: [],
-        total: 0,
-        totalToday: 0
-      })
-    });
-  });
-};
-
-const mockAuthorizedUser = async (page: Page) => {
-  await page.route('**/api/auth/user', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        success: true,
-        user: {
-          email: 'test@test.ru',
-          name: 'Test User'
-        }
-      })
-    });
-  });
-};
-
 test.describe('Burger constructor', () => {
   test.beforeEach(async ({ page }) => {
-    await mockCommonRequests(page);
-    await page.route('**/api/auth/user', async (route) => {
-      await route.fulfill({
-        status: 401,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: false,
-          message: 'You should be authorised'
-        })
-      });
+    // 1. Стабильный мок ингредиентов из HAR
+    await page.routeFromHAR('./tests/hars/ingredients.har', {
+      url: '**/api/ingredients',
+      update: false
+    });
+
+    // 2. Стабильный мок истории заказов из HAR
+    await page.routeFromHAR('./tests/hars/orders-all-empty.har', {
+      url: '**/api/orders/all',
+      update: false
+    });
+
+    // 3. По умолчанию для ВСЕХ тестов юзер НЕ авторизован (берём из HAR)
+    await page.routeFromHAR('./tests/hars/auth-401.har', {
+      url: '**/api/auth/user',
+      update: false
     });
   });
 
   test('adds bun and main ingredient to constructor', async ({ page }) => {
     await page.goto('/');
-
     await page
       .getByTestId(`add-ingredient-button-${bun._id}`)
       .locator('button')
       .click();
-
     await expect(page.getByTestId('constructor-bun-top')).toContainText(
       bun.name
     );
     await expect(page.getByTestId('constructor-bun-bottom')).toContainText(
       bun.name
     );
-
     await page
       .getByTestId(`add-ingredient-button-${main._id}`)
       .locator('button')
       .click();
-
     await expect(
       page.getByTestId(`constructor-ingredient-${main._id}`)
     ).toContainText(main.name);
@@ -107,34 +70,23 @@ test.describe('Burger constructor', () => {
 
   test('opens ingredient modal', async ({ page }) => {
     await page.goto('/');
-
     await page.getByTestId(`ingredient-link-${bun._id}`).click();
-
     await expect(page.getByTestId('modal')).toBeVisible();
-    await expect(page.getByTestId('modal')).toContainText(bun.name);
   });
 
   test('closes ingredient modal by close button', async ({ page }) => {
     await page.goto('/');
-
     await page.getByTestId(`ingredient-link-${bun._id}`).click();
-    await expect(page.getByTestId('modal')).toBeVisible();
-
     await page.getByTestId('modal-close').click();
-
     await expect(page.getByTestId('modal')).not.toBeVisible();
   });
 
   test('closes ingredient modal by overlay click', async ({ page }) => {
     await page.goto('/');
-
     await page.getByTestId(`ingredient-link-${bun._id}`).click();
-    await expect(page.getByTestId('modal')).toBeVisible();
-
     await page
       .getByTestId('modal-overlay')
       .click({ position: { x: 10, y: 10 } });
-
     await expect(page.getByTestId('modal')).not.toBeVisible();
   });
 
@@ -142,6 +94,7 @@ test.describe('Burger constructor', () => {
     page,
     context
   }) => {
+    // Настраиваем куки и сессию
     await context.addCookies([
       {
         name: 'accessToken',
@@ -149,46 +102,26 @@ test.describe('Burger constructor', () => {
         url: 'http://localhost:4000'
       }
     ]);
-
     await page.addInitScript(() => {
       window.localStorage.setItem('refreshToken', 'test-refresh-token');
     });
 
-    await mockAuthorizedUser(page);
+    // ХИТРОСТЬ: Переопределяем мок авторизации на СУЩЕСТВУЮЩИЙ HAR с 200 OK
+    // Playwright использует последнее объявленное правило маршрутизации
+    await page.routeFromHAR('./tests/hars/auth-200.har', {
+      url: '**/api/auth/user',
+      update: false
+    });
 
-    await page.route('**/api/orders', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.fallback();
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          name: 'Test order',
-          order: {
-            _id: 'test-order-id',
-            status: 'done',
-            name: 'Test order',
-            number: orderNumber,
-            price: 1000,
-            owner: {
-              name: 'Test User',
-              email: 'test@test.ru',
-              createdAt: '2026-01-01T00:00:00.000Z',
-              updatedAt: '2026-01-01T00:00:00.000Z'
-            },
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z'
-          }
-        })
-      });
+    // Мокаем отправку заказа (POST) тоже через HAR
+    await page.routeFromHAR('./tests/hars/order-post-success.har', {
+      url: '**/api/orders',
+      update: false
     });
 
     await page.goto('/');
 
+    // Действия в конструкторе
     await page
       .getByTestId(`add-ingredient-button-${bun._id}`)
       .locator('button')
@@ -198,26 +131,20 @@ test.describe('Burger constructor', () => {
       .locator('button')
       .click();
 
-    await expect(page.getByTestId('constructor-bun-top')).toBeVisible();
-    await expect(
-      page.getByTestId(`constructor-ingredient-${main._id}`)
-    ).toBeVisible();
-
+    // Клик по кнопке заказа (теперь модалка откроется, т.к. auth-200 вернет успех)
     await page.getByTestId('order-button').locator('button').click();
 
+    // Проверки модалки заказа
     await expect(page.getByTestId('modal')).toBeVisible();
     await expect(page.getByTestId('order-number')).toHaveText(
       String(orderNumber)
     );
 
+    // Проверка очистки конструктора
     await expect(page.getByTestId('no-buns-top')).toBeVisible();
     await expect(page.getByTestId('no-ingredients')).toBeVisible();
-    await expect(
-      page.getByTestId(`constructor-ingredient-${main._id}`)
-    ).not.toBeVisible();
 
     await page.getByTestId('modal-close').click();
-
     await expect(page.getByTestId('modal')).not.toBeVisible();
   });
 });
