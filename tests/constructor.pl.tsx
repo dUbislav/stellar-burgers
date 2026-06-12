@@ -7,7 +7,6 @@ type TIngredient = {
   type: 'bun' | 'main' | 'sauce';
 };
 
-// Читаем моки для получения ID (остается как у вас)
 const ingredientsMock = JSON.parse(
   readFileSync(
     './tests/hars/d865ae765d0bd24d2055469500cc7f17b1056715.json',
@@ -28,19 +27,16 @@ const orderNumber = 12345;
 
 test.describe('Burger constructor', () => {
   test.beforeEach(async ({ page }) => {
-    // 1. Стабильный мок ингредиентов из HAR
     await page.routeFromHAR('./tests/hars/ingredients.har', {
       url: '**/api/ingredients',
       update: false
     });
 
-    // 2. Стабильный мок истории заказов из HAR
     await page.routeFromHAR('./tests/hars/orders-all-empty.har', {
       url: '**/api/orders/all',
       update: false
     });
 
-    // 3. По умолчанию для ВСЕХ тестов юзер НЕ авторизован (берём из HAR)
     await page.routeFromHAR('./tests/hars/auth-401.har', {
       url: '**/api/auth/user',
       update: false
@@ -94,7 +90,6 @@ test.describe('Burger constructor', () => {
     page,
     context
   }) => {
-    // Настраиваем куки и сессию
     await context.addCookies([
       {
         name: 'accessToken',
@@ -106,14 +101,11 @@ test.describe('Burger constructor', () => {
       window.localStorage.setItem('refreshToken', 'test-refresh-token');
     });
 
-    // ХИТРОСТЬ: Переопределяем мок авторизации на СУЩЕСТВУЮЩИЙ HAR с 200 OK
-    // Playwright использует последнее объявленное правило маршрутизации
     await page.routeFromHAR('./tests/hars/auth-200.har', {
       url: '**/api/auth/user',
       update: false
     });
 
-    // Мокаем отправку заказа (POST) тоже через HAR
     await page.routeFromHAR('./tests/hars/order-post-success.har', {
       url: '**/api/orders',
       update: false
@@ -131,7 +123,6 @@ test.describe('Burger constructor', () => {
       .locator('button')
       .click();
 
-    // Клик по кнопке заказа (теперь модалка откроется, т.к. auth-200 вернет успех)
     await page.getByTestId('order-button').locator('button').click();
 
     // Проверки модалки заказа
@@ -140,7 +131,6 @@ test.describe('Burger constructor', () => {
       String(orderNumber)
     );
 
-    // Проверка очистки конструктора
     await expect(page.getByTestId('no-buns-top')).toBeVisible();
     await expect(page.getByTestId('no-ingredients')).toBeVisible();
 
